@@ -10,6 +10,10 @@ import com.pm.patientservice.kafka.kafkaProducer;
 import com.pm.patientservice.mapper.PatientMapper;
 import com.pm.patientservice.model.Patient;
 import com.pm.patientservice.repository.PatientRepository;
+import org.apache.commons.logging.Log;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -26,15 +30,30 @@ public class PatientService {
     private final PatientRepository patientRepository;
     private final BillingServiceGrpcClient billingServiceGrpcClient;
     private final kafkaProducer kafkaProducer;
-
+    private static final Logger log=LoggerFactory.getLogger(PatientService.class);
 
     public PatientService(PatientRepository patientRepository, BillingServiceGrpcClient billingServiceGrpcClient, kafkaProducer kafkaProducer) {
         this.patientRepository = patientRepository;
         this.billingServiceGrpcClient = billingServiceGrpcClient;
         this.kafkaProducer = kafkaProducer;
     }
+
+
+    @Cacheable(
+            value = "patients",
+            key = "#page+ '-'+ #size+'-'+#sort+'-'+#sortField",
+            condition = "#searchValue==''"
+    )
     public PagedPatientResponseDTO getPatients(
             int page, int size, String sort, String sortField, String searchValue) {
+
+        log.info("[REDIS]: Cache miss - fetching from DB");
+        try{
+            Thread.sleep(2000);
+
+        }catch (InterruptedException e){
+            log.error(e.getMessage());
+        }
 
         Pageable pageable = PageRequest.of(page-1, size,
                 sort.equalsIgnoreCase("desc")

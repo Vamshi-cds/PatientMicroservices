@@ -1,19 +1,24 @@
 package com.pm.apigateway.config;
 
 import com.pm.apigateway.filter.JwtValidationGatewayFilterFactory;
+import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 
 @Configuration
 public class GatewayRoutesConfig {
 
 
     private JwtValidationGatewayFilterFactory jwtValidationGatewayFilterFactory;
+    private final RedisRateLimiter redisRateLimiter;
 
-    public GatewayRoutesConfig(JwtValidationGatewayFilterFactory jwtValidationGatewayFilterFactory) {
+    public GatewayRoutesConfig(JwtValidationGatewayFilterFactory jwtValidationGatewayFilterFactory,
+                               RedisRateLimiter  redisRateLimiter) {
         this.jwtValidationGatewayFilterFactory = jwtValidationGatewayFilterFactory;
+        this.redisRateLimiter = redisRateLimiter;
 
     }
 
@@ -24,7 +29,10 @@ public class GatewayRoutesConfig {
                         .path("/api/patients", "/api/patients/**")
                         .filters(f -> f
                                 .stripPrefix(1)
+                                .requestRateLimiter(config -> config.setRateLimiter(redisRateLimiter)
+                                        .setStatusCode(HttpStatus.TOO_MANY_REQUESTS))
                                 .filter(jwtValidationGatewayFilterFactory.apply(new Object()))
+
                         )
                         .uri("http://patient-service:4000"))
                 .route("api-docs-patient-route", r -> r
@@ -43,6 +51,9 @@ public class GatewayRoutesConfig {
                         .path("/auth/**")
                         .filters(f->f
                                 .stripPrefix(1)
+                                        .requestRateLimiter(config -> config
+                                                .setRateLimiter(redisRateLimiter)
+                                                .setStatusCode(HttpStatus.TOO_MANY_REQUESTS))
                                 //.filter(jwtValidationGatewayFilterFactory.apply(new Object()))
                         )
                         .uri("http://auth-service:4005"))
